@@ -3,15 +3,19 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 require('dotenv').config();
-console.log("SMTP_USER:", process.env.SMTP_USER);
 
+console.log("SMTP_USER:", process.env.SMTP_USER);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Log incoming webhook data
+// Prepare SMS recipient list from .env
+const smsRecipients = process.env.SMS_RECIPIENTS
+  ? process.env.SMS_RECIPIENTS.split(',').map(email => email.trim())
+  : [];
+
 function logWebhook(data) {
   const log = `${new Date().toISOString()}\nRAW:\n${JSON.stringify(data, null, 2)}\n\n`;
   fs.appendFileSync('square_webhook_log.txt', log);
@@ -76,8 +80,8 @@ app.post('/webhook', async (req, res) => {
       break;
   }
 
-  // Send email alert
-  if (alert) {
+  // Send email alert if needed
+  if (alert && smsRecipients.length > 0) {
     try {
       const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
@@ -91,8 +95,8 @@ app.post('/webhook', async (req, res) => {
 
       await transporter.sendMail({
         from: `"Moustache Hookah Alert" <${process.env.SMTP_USER}>`,
-        to: process.env.SMS_RECIPIENT,
-        subject: '',
+        to: smsRecipients,
+        subject: '', // Blank for SMS
         text: message,
       });
 
