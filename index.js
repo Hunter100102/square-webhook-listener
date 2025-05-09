@@ -38,11 +38,12 @@ app.post('/webhook', async (req, res) => {
       const amountCents = payment.amount_money?.amount || 0;
       const status = (payment.status || 'UNKNOWN').toUpperCase();
       const paymentId = payment.id || 'UNKNOWN';
+      const receipt_number = payment.receipt_number || 'UNKNOWN';
 
       if (['VOIDED', 'REFUNDED', 'DISPUTED', 'CANCELED'].includes(status) || amountCents === 0) {
         alert = true;
         const amount = (amountCents / 100).toFixed(2);
-        message = `🚨 Payment ${paymentId} was ${status} for $${amount}.`;
+        message = `🚨 Recipt # ${receipt_number} was ${status} for $${amount}.`;
       }
       break;
     }
