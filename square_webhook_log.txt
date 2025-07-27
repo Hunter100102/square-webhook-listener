@@ -52,3 +52,21 @@ RAW:
   }
 }
 
+2025-07-27T16:47:52.969Z
+RAW:
+{
+  "type": "payment.updated",
+  "data": {
+    "object": {
+      "payment": {
+        "id": "TEST_PAYMENT_ID",
+        "status": "VOIDED",
+        "amount_money": {
+          "amount": 1000
+        },
+        "receipt_number": "1234567890"
+      }
+    }
+  }
+}
+

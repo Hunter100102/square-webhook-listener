@@ -1,19 +1,21 @@
-// index.js
 const express = require('express');
-const nodemailer = require('nodemailer');
 const fs = require('fs');
+const twilio = require('twilio');
 require('dotenv').config();
 
-console.log("SMTP_USER:", process.env.SMTP_USER);
+console.log("Twilio From Number:", process.env.TWILIO_PHONE_NUMBER);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Prepare SMS recipient list from .env
+// Twilio client
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+// Load recipients
 const smsRecipients = process.env.SMS_RECIPIENTS
-  ? process.env.SMS_RECIPIENTS.split(',').map(email => email.trim())
+  ? process.env.SMS_RECIPIENTS.split(',').map(num => num.trim())
   : [];
 
 function logWebhook(data) {
@@ -37,13 +39,12 @@ app.post('/webhook', async (req, res) => {
       const payment = object.payment || {};
       const amountCents = payment.amount_money?.amount || 0;
       const status = (payment.status || 'UNKNOWN').toUpperCase();
-      const paymentId = payment.id || 'UNKNOWN';
       const receipt_number = payment.receipt_number || 'UNKNOWN';
 
       if (['VOIDED', 'REFUNDED', 'DISPUTED', 'CANCELED'].includes(status) || amountCents === 0) {
         alert = true;
         const amount = (amountCents / 100).toFixed(2);
-        message = `🚨 Recipt # ${receipt_number} was ${status} for $${amount}.`;
+        message = `🚨 Receipt #${receipt_number} was ${status} for $${amount}.`;
       }
       break;
     }
@@ -81,31 +82,21 @@ app.post('/webhook', async (req, res) => {
       break;
   }
 
-  // Send email alert if needed
   if (alert && smsRecipients.length > 0) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
+      for (const recipient of smsRecipients) {
+        await twilioClient.messages.create({
+          body: message,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: recipient,
+        });
+      }
 
-      await transporter.sendMail({
-        from: `"Moustache Hookah Alert" <${process.env.SMTP_USER}>`,
-        to: smsRecipients,
-        subject: '', // Blank for SMS
-        text: message,
-      });
-
-      console.log('Alert sent:', message);
-      res.status(200).send('Alert sent');
+      console.log('Alert sent via Twilio:', message);
+      res.status(200).send('Alert sent via Twilio');
     } catch (err) {
-      console.error('Failed to send alert:', err);
-      res.status(500).send('Failed to send alert');
+      console.error('Failed to send Twilio SMS:', err);
+      res.status(500).send('Failed to send SMS');
     }
   } else {
     res.status(200).send(`No alert triggered. Event: ${eventType}`);
